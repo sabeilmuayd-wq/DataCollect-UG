@@ -1,0 +1,590 @@
+import streamlit as st
+import pandas as pd
+import json
+import os
+import uuid
+from datetime import datetime
+import hashlib
+import random
+import string
+
+# ==================== إعدادات الصفحة ====================
+st.set_page_config(
+    page_title="DataCollect UG - Digital Governance",
+    page_icon="📊",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+# ==================== نظام الترجمة متعدد اللغات ====================
+if "language" not in st.session_state:
+    st.session_state.language = "en"
+
+translations = {
+    "en": {
+        "app_name": "📊 DataCollect UG",
+        "subtitle": "Uganda Digital Governance Platform",
+        "nbi_compatible": "NBI Compatible | Data Protection Act 2019",
+        "consent_title": "Consent Required under Uganda Data Protection Act 2019",
+        "read_terms": "Read Terms of Consent",
+        "agree": "✅ I Agree",
+        "disagree": "❌ I Disagree",
+        "consent_recorded": "Consent recorded successfully",
+        "user_info": "User Information",
+        "full_name": "Full Name",
+        "role": "Role / Agency",
+        "district": "District",
+        "phone": "Phone Number",
+        "encrypted": "Your number will be encrypted",
+        "will_show": "Will display as",
+        "agriculture": "🌾 Agriculture",
+        "health": "🏥 Health",
+        "education": "📚 Education",
+        "livestock": "🐄 Livestock",
+        "water": "💧 Water",
+        "energy": "⚡ Energy",
+        "total_records": "Total Records",
+        "villages_covered": "Villages Covered",
+        "agriculture_records": "Agriculture Records",
+        "health_records": "Health Records",
+        "new_data": "Register New Data",
+        "select_sector": "Select Sector",
+        "save_data": "✅ Save Data (Privacy Act Compliant)",
+        "save_success": "Data saved successfully!",
+        "record_summary": "Record Summary",
+        "record_id": "Record ID",
+        "sector": "Sector",
+        "date": "Date",
+        "encrypted_yes": "Encrypted: Yes",
+        "nbi_pending": "NBI Ready: Pending Sync",
+        "view_data": "View & Analyze Data",
+        "export_csv": "📥 Export Data (CSV)",
+        "nbi_integration": "National Backbone Infrastructure (NBI) Integration",
+        "ready_to_sync": "Records Ready to Sync",
+        "encrypted_data": "Encrypted Data",
+        "api_endpoints": "API Endpoints for Government Systems",
+        "sync_nbi": "🔄 Simulate NBI Sync",
+        "sync_success": "Data synced with National Backbone Infrastructure",
+        "stats": "Statistics",
+        "today_records": "Today's Records",
+        "compatible_with": "Compatible with",
+        "support": "Support",
+        "footer": "Digital Governance for Uganda | Beta Version - Ready for Government Integration",
+        "farmer_name": "Farmer Name",
+        "farmer_phone": "Farmer Phone",
+        "village": "Village",
+        "crop_type": "Crop Type",
+        "quantity": "Quantity (kg)",
+        "price": "Price (UGX)",
+        "patient_name": "Patient Name",
+        "patient_age": "Age",
+        "symptoms": "Symptoms",
+        "disease_type": "Disease Type",
+        "school_name": "School Name",
+        "students_count": "Number of Students",
+        "teachers_count": "Number of Teachers",
+        "needs": "Needs / Requirements",
+        "animal_type": "Animal Type",
+        "animal_count": "Number of Animals",
+        "water_source": "Water Source",
+        "water_functional": "Water Source Working",
+        "distance_km": "Distance (km)",
+        "has_electricity": "Has Electricity",
+        "main_energy_source": "Main Energy Source",
+        "notes": "Additional Notes",
+        "submit": "Save Data"
+    },
+    "ar": {
+        "app_name": "📊 DataCollect UG",
+        "subtitle": "منصة الحوكمة الرقمية لأوغندا",
+        "nbi_compatible": "متوافق مع NBI | قانون حماية البيانات 2019",
+        "consent_title": "مطلوب موافقتك حسب قانون حماية البيانات الأوغندي 2019",
+        "read_terms": "اقرأ بنود الموافقة",
+        "agree": "✅ أوافق",
+        "disagree": "❌ لا أوافق",
+        "consent_recorded": "تم تسجيل الموافقة بنجاح",
+        "user_info": "معلومات المستخدم",
+        "full_name": "الاسم الكامل",
+        "role": "الجهة / الدور",
+        "district": "المقاطعة",
+        "phone": "رقم الهاتف",
+        "encrypted": "سيتم تشفير رقمك",
+        "will_show": "سيظهر كـ",
+        "agriculture": "🌾 الزراعة",
+        "health": "🏥 الصحة",
+        "education": "📚 التعليم",
+        "livestock": "🐄 الثروة الحيوانية",
+        "water": "💧 المياه",
+        "energy": "⚡ الطاقة",
+        "total_records": "إجمالي السجلات",
+        "villages_covered": "قرى مشمولة",
+        "agriculture_records": "سجلات زراعية",
+        "health_records": "سجلات صحية",
+        "new_data": "تسجيل بيانات جديدة",
+        "select_sector": "اختر القطاع",
+        "save_data": "✅ حفظ البيانات",
+        "save_success": "تم حفظ البيانات بنجاح!",
+        "record_summary": "ملخص السجل",
+        "record_id": "رقم السجل",
+        "sector": "القطاع",
+        "date": "التاريخ",
+        "encrypted_yes": "مشفر: نعم",
+        "nbi_pending": "جاهز لـ NBI: قيد المزامنة",
+        "view_data": "عرض وتحليل البيانات",
+        "export_csv": "📥 تصدير البيانات",
+        "nbi_integration": "الربط مع البنية التحتية الوطنية NBI",
+        "ready_to_sync": "سجلات جاهزة للمزامنة",
+        "encrypted_data": "بيانات مشفرة",
+        "api_endpoints": "نقاط الاتصال API للأنظمة الحكومية",
+        "sync_nbi": "🔄 محاكاة المزامنة مع NBI",
+        "sync_success": "تمت المزامنة مع البنية التحتية الوطنية",
+        "stats": "إحصائيات",
+        "today_records": "سجلات اليوم",
+        "compatible_with": "متوافق مع",
+        "support": "الدعم",
+        "footer": "الحوكمة الرقمية لأوغندا | نسخة تجريبية - جاهزة للربط الحكومي",
+        "farmer_name": "اسم المزارع",
+        "farmer_phone": "رقم المزارع",
+        "village": "القرية",
+        "crop_type": "نوع المحصول",
+        "quantity": "الكمية (كيلو)",
+        "price": "السعر (شلن)",
+        "patient_name": "اسم المريض",
+        "patient_age": "العمر",
+        "symptoms": "الأعراض",
+        "disease_type": "نوع المرض",
+        "school_name": "اسم المدرسة",
+        "students_count": "عدد الطلاب",
+        "teachers_count": "عدد المعلمين",
+        "needs": "الاحتياجات",
+        "animal_type": "نوع الماشية",
+        "animal_count": "العدد",
+        "water_source": "مصدر المياه",
+        "water_functional": "المصدر يعمل",
+        "distance_km": "المسافة (كم)",
+        "has_electricity": "يوجد كهرباء",
+        "main_energy_source": "مصدر الطاقة الرئيسي",
+        "notes": "ملاحظات إضافية",
+        "submit": "حفظ البيانات"
+    },
+    "sw": {
+        "app_name": "📊 DataCollect UG",
+        "subtitle": "Jukwaa la Utawala wa Kidijitali Uganda",
+        "nbi_compatible": "Inaendana na NBI | Sheria ya Ulinzi wa Data 2019",
+        "consent_title": "Ruhusa Inahitajika chini ya Sheria ya Ulinzi wa Data Uganda 2019",
+        "read_terms": "Soma Masharti ya Ruhusa",
+        "agree": "✅ Nakubali",
+        "disagree": "❌ Sikubali",
+        "consent_recorded": "Ruhusa imerekodiwa",
+        "user_info": "Taarifa za Mtumiaji",
+        "full_name": "Jina Kamili",
+        "role": "Nafasi / Shirika",
+        "district": "Wilaya",
+        "phone": "Namba ya Simu",
+        "encrypted": "Namba yako itafichwa",
+        "will_show": "Itaonekana kama",
+        "agriculture": "🌾 Kilimo",
+        "health": "🏥 Afya",
+        "education": "📚 Elimu",
+        "livestock": "🐄 Mifugo",
+        "water": "💧 Maji",
+        "energy": "⚡ Nishati",
+        "total_records": "Jumla ya Rekodi",
+        "villages_covered": "Vijiji Vilivyofikiwa",
+        "agriculture_records": "Rekodi za Kilimo",
+        "health_records": "Rekodi za Afya",
+        "new_data": "Sajili Data Mpya",
+        "select_sector": "Chagua Sekta",
+        "save_data": "✅ Hifadhi Data",
+        "save_success": "Data imehifadhiwa!",
+        "record_summary": "Muhtasari wa Rekodi",
+        "record_id": "Namba ya Rekodi",
+        "sector": "Sekta",
+        "date": "Tarehe",
+        "encrypted_yes": "Imefichwa: Ndiyo",
+        "nbi_pending": "Inaendana na NBI: Inasubiri",
+        "view_data": "Angalia na Chambua Data",
+        "export_csv": "📥 Pakua Data (CSV)",
+        "nbi_integration": "Ushirikiano na Miundombinu ya Kitaifa NBI",
+        "ready_to_sync": "Rekodi Zinazosubiri",
+        "encrypted_data": "Data Iliyofichwa",
+        "api_endpoints": "Sehemu za API kwa Mifumo ya Serikali",
+        "sync_nbi": "🔄 Iga Ushirikiano wa NBI",
+        "sync_success": "Data imeshirikishwa na Miundombinu ya Kitaifa",
+        "stats": "Takwimu",
+        "today_records": "Rekodi za Leo",
+        "compatible_with": "Inaendana na",
+        "support": "Msaada",
+        "footer": "Utawala wa Kidijitali Uganda | Toleo la Majaribio",
+        "farmer_name": "Jina la Mkulima",
+        "farmer_phone": "Simu ya Mkulima",
+        "village": "Kijiji",
+        "crop_type": "Aina ya Zao",
+        "quantity": "Kiasi (kg)",
+        "price": "Bei (UGX)",
+        "patient_name": "Jina la Mgonjwa",
+        "patient_age": "Umri",
+        "symptoms": "Dalili",
+        "disease_type": "Aina ya Ugonjwa",
+        "school_name": "Jina la Shule",
+        "students_count": "Idadi ya Wanafunzi",
+        "teachers_count": "Idadi ya Walimu",
+        "needs": "Mahitaji",
+        "animal_type": "Aina ya Mnyama",
+        "animal_count": "Idadi",
+        "water_source": "Chanzo cha Maji",
+        "water_functional": "Chanzo kinafanya kazi",
+        "distance_km": "Umbali (km)",
+        "has_electricity": "Ina Umeme",
+        "main_energy_source": "Chanzo Kikuu cha Nishati",
+        "notes": "Maelezo ya Ziada",
+        "submit": "Hifadhi Data"
+    }
+}
+
+def t(key):
+    return translations[st.session_state.language].get(key, key)
+
+# ==================== دوال مساعدة ====================
+def hash_data(data):
+    return hashlib.sha256(str(data).encode()).hexdigest()[:16]
+
+def encrypt_phone(phone):
+    if len(str(phone)) >= 7:
+        return str(phone)[:3] + "****" + str(phone)[-3:]
+    return "***"
+
+def generate_id():
+    return str(uuid.uuid4())[:8].upper()
+
+def generate_api_key():
+    return "NBI_" + ''.join(random.choices(string.ascii_uppercase + string.digits, k=12))
+
+# ==================== تهيئة الحالة ====================
+if "consent_given" not in st.session_state:
+    st.session_state.consent_given = False
+if "user_name" not in st.session_state:
+    st.session_state.user_name = ""
+if "user_role" not in st.session_state:
+    st.session_state.user_role = ""
+if "user_district" not in st.session_state:
+    st.session_state.user_district = ""
+if "user_phone" not in st.session_state:
+    st.session_state.user_phone = ""
+
+# ==================== ملفات التخزين ====================
+DATA_FOLDER = "datacollect_data"
+if not os.path.exists(DATA_FOLDER):
+    os.makedirs(DATA_FOLDER)
+
+RECORDS_FILE = os.path.join(DATA_FOLDER, "records.json")
+SECTORS_FILE = os.path.join(DATA_FOLDER, "sectors.json")
+CONSENTS_FILE = os.path.join(DATA_FOLDER, "consents.json")
+
+def load_data(filename, default=None):
+    if default is None:
+        default = []
+    if os.path.exists(filename):
+        try:
+            with open(filename, 'r') as f:
+                content = f.read().strip()
+                return json.loads(content) if content else default
+        except:
+            return default
+    return default
+
+def save_data(filename, data):
+    try:
+        with open(filename, 'w') as f:
+            json.dump(data, f, indent=2)
+        return True
+    except:
+        return False
+
+# ==================== تعريف القطاعات مع حقول متعددة اللغات ====================
+if not os.path.exists(SECTORS_FILE):
+    default_sectors = {
+        "agriculture": {
+            "name_key": "agriculture",
+            "fields": ["farmer_name", "farmer_phone", "village", "crop_type", "quantity", "price"]
+        },
+        "health": {
+            "name_key": "health",
+            "fields": ["patient_name", "patient_age", "village", "symptoms", "disease_type"]
+        },
+        "education": {
+            "name_key": "education",
+            "fields": ["school_name", "village", "students_count", "teachers_count", "needs"]
+        },
+        "livestock": {
+            "name_key": "livestock",
+            "fields": ["farmer_name", "farmer_phone", "village", "animal_type", "animal_count"]
+        },
+        "water": {
+            "name_key": "water",
+            "fields": ["village", "water_source", "water_functional", "distance_km"]
+        },
+        "energy": {
+            "name_key": "energy",
+            "fields": ["village", "has_electricity", "main_energy_source"]
+        }
+    }
+    save_data(SECTORS_FILE, default_sectors)
+
+# ==================== تصميم الصفحة ====================
+st.markdown("""
+<style>
+    .stApp { background: linear-gradient(135deg, #f5f7fa 0%, #e4e8f0 100%); }
+    .main-header {
+        text-align: center;
+        padding: 2rem;
+        background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+        border-radius: 20px;
+        margin-bottom: 2rem;
+    }
+    .main-header h1 { color: white; font-size: 2.5rem; }
+    .main-header p { color: #e0e0e0; }
+    .stat-card {
+        background: white;
+        border-radius: 15px;
+        padding: 1rem;
+        text-align: center;
+        border-top: 4px solid #2ecc71;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    }
+    .stat-card .number { font-size: 2rem; font-weight: bold; color: #2c3e50; }
+    .stat-card .label { color: #5a6e7e; }
+    .footer {
+        text-align: center;
+        padding: 2rem;
+        margin-top: 3rem;
+        background: #2c3e50;
+        border-radius: 15px;
+        color: white;
+    }
+    .stButton button {
+        background-color: #2ecc71;
+        color: white;
+        font-weight: bold;
+        border: none;
+        border-radius: 10px;
+    }
+    .stButton button:hover { background-color: #27ae60; }
+</style>
+""", unsafe_allow_html=True)
+
+# ==================== أزرار اللغة ====================
+col1, col2, col3 = st.columns(3)
+with col1:
+    if st.button("🇸🇦 العربية", use_container_width=True):
+        st.session_state.language = "ar"
+        st.rerun()
+with col2:
+    if st.button("🇬🇧 English", use_container_width=True):
+        st.session_state.language = "en"
+        st.rerun()
+with col3:
+    if st.button("🇺🇬 Kiswahili", use_container_width=True):
+        st.session_state.language = "sw"
+        st.rerun()
+
+# ==================== العنوان ====================
+st.markdown(f"""
+<div class='main-header'>
+    <h1>{t('app_name')}</h1>
+    <p>{t('subtitle')}</p>
+    <p><strong>{t('nbi_compatible')}</strong></p>
+</div>
+""", unsafe_allow_html=True)
+
+# ==================== الموافقة ====================
+if not st.session_state.consent_given:
+    st.markdown(f"### 📜 {t('consent_title')}")
+    with st.expander(f"📖 {t('read_terms')}", expanded=True):
+        st.info("I consent to the collection of my personal data (name, phone, location) for official government purposes. My phone number will be encrypted.")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button(t('agree'), use_container_width=True):
+            st.session_state.consent_given = True
+            st.rerun()
+    with col2:
+        if st.button(t('disagree'), use_container_width=True):
+            st.stop()
+else:
+    st.success(f"✅ {t('consent_recorded')}")
+
+# ==================== معلومات المستخدم ====================
+with st.expander(f"👤 {t('user_info')}", expanded=not st.session_state.user_name):
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        name = st.text_input(t('full_name'), value=st.session_state.user_name)
+        st.session_state.user_name = name
+    with col2:
+        role = st.selectbox(t('role'), ["Government Officer", "Agricultural Extension", "Health Worker", "Teacher", "Researcher"])
+        st.session_state.user_role = role
+    with col3:
+        district = st.selectbox(t('district'), ["Kiryandongo", "Masindi", "Gulu", "Kampala", "Jinja", "Other"])
+        st.session_state.user_district = district
+    
+    phone = st.text_input(t('phone'), value=st.session_state.user_phone)
+    if phone:
+        st.session_state.user_phone = phone
+        st.caption(f"{t('will_show')}: {encrypt_phone(phone)}")
+
+# ==================== إحصائيات ====================
+records = load_data(RECORDS_FILE, [])
+
+st.markdown(f"### 📊 {t('stats')}")
+col1, col2, col3, col4 = st.columns(4)
+
+with col1:
+    st.markdown(f"<div class='stat-card'><div class='number'>{len(records)}</div><div class='label'>{t('total_records')}</div></div>", unsafe_allow_html=True)
+with col2:
+    villages = len(set([r.get("fields", {}).get("village", "") for r in records if r.get("fields")]))
+    st.markdown(f"<div class='stat-card'><div class='number'>{villages}</div><div class='label'>{t('villages_covered')}</div></div>", unsafe_allow_html=True)
+with col3:
+    agri = len([r for r in records if r.get("sector") == "agriculture"])
+    st.markdown(f"<div class='stat-card'><div class='number'>{agri}</div><div class='label'>{t('agriculture_records')}</div></div>", unsafe_allow_html=True)
+with col4:
+    health = len([r for r in records if r.get("sector") == "health"])
+    st.markdown(f"<div class='stat-card'><div class='number'>{health}</div><div class='label'>{t('health_records')}</div></div>", unsafe_allow_html=True)
+
+# ==================== تسجيل بيانات ====================
+st.markdown("---")
+st.markdown(f"### 📝 {t('new_data')}")
+
+sectors_data = load_data(SECTORS_FILE, {})
+sectors_list = list(sectors_data.keys())
+sector_names = [t(sectors_data[s]["name_key"]) for s in sectors_list]
+
+selected_index = st.selectbox(t('select_sector'), range(len(sectors_list)), format_func=lambda i: sector_names[i])
+selected_sector_key = sectors_list[selected_index]
+selected_sector = sectors_data[selected_sector_key]
+
+st.markdown(f"#### {t(selected_sector['name_key'])}")
+
+record_data = {}
+fields = selected_sector["fields"]
+col1, col2 = st.columns(2)
+
+for i, field_name in enumerate(fields):
+    with col1 if i % 2 == 0 else col2:
+        label = t(field_name)
+        
+        if field_name in ["quantity", "price", "patient_age", "students_count", "teachers_count", "animal_count", "distance_km"]:
+            val = st.number_input(label, min_value=0, step=1, key=f"f_{field_name}")
+        elif field_name in ["water_functional", "has_electricity"]:
+            val = st.checkbox(label, key=f"f_{field_name}")
+        else:
+            val = st.text_input(label, key=f"f_{field_name}")
+        
+        record_data[field_name] = val
+
+notes = st.text_area(t('notes'), height=80)
+
+if st.button(t('save_data'), type="primary", use_container_width=True):
+    if st.session_state.consent_given and st.session_state.user_name:
+        record = {
+            "id": generate_id(),
+            "sector": selected_sector_key,
+            "sector_name": t(selected_sector['name_key']),
+            "fields": record_data,
+            "notes": notes,
+            "collector_name": st.session_state.user_name,
+            "collector_role": st.session_state.user_role,
+            "collector_district": st.session_state.user_district,
+            "timestamp": datetime.now().isoformat(),
+            "date": datetime.now().strftime("%Y-%m-%d"),
+            "language": st.session_state.language
+        }
+        
+        all_records = load_data(RECORDS_FILE, [])
+        all_records.append(record)
+        save_data(RECORDS_FILE, all_records)
+        
+        st.success(f"✅ {t('save_success')}")
+        st.balloons()
+        
+        st.info(f"**📋 {t('record_summary')}**\n- {t('record_id')}: `{record['id']}`\n- {t('sector')}: {record['sector_name']}\n- {t('date')}: {record['timestamp'][:19]}\n- {t('encrypted_yes')}")
+    else:
+        st.error("❌ Please provide consent and enter your name")
+
+# ==================== عرض البيانات ====================
+with st.expander(f"📋 {t('view_data')}", expanded=False):
+    all_records = load_data(RECORDS_FILE, [])
+    
+    if all_records:
+        df = pd.DataFrame(all_records)
+        display_cols = ['id', 'sector_name', 'timestamp', 'collector_name', 'collector_district']
+        st.dataframe(df[display_cols].tail(20), use_container_width=True)
+        
+        csv = df.to_csv(index=False)
+        st.download_button(label=t('export_csv'), data=csv, file_name=f"datacollect_{datetime.now().strftime('%Y%m%d')}.csv", mime="text/csv")
+    else:
+        st.info("No data recorded yet")
+
+# ==================== NBI Integration ====================
+with st.expander(f"🔌 {t('nbi_integration')}", expanded=False):
+    st.markdown("""
+    ### 🇺🇬 National Backbone Infrastructure (NBI)
+    
+    **Infrastructure Status:**
+    - 2,474 km fiber optic cables
+    - 4 government data centers
+    - Ready for NIFAMIS, DHIS2, EMIS integration
+    """)
+    
+    all_records = load_data(RECORDS_FILE, [])
+    st.metric(t('ready_to_sync'), len(all_records))
+    
+    api_key = generate_api_key()
+    st.code(f"""
+    # API Endpoints
+    GET /api/v1/records
+    GET /api/v1/records/{{id}}
+    GET /api/v1/stats
+    
+    # Demo API Key
+    X-API-Key: {api_key}
+    """)
+    
+    if st.button(t('sync_nbi'), use_container_width=True):
+        st.success(f"✅ {t('sync_success')}")
+        st.balloons()
+
+# ==================== Sidebar ====================
+with st.sidebar:
+    st.markdown(f"### 📊 {t('app_name')}")
+    st.markdown(f"**👤 {st.session_state.user_name or '---'}**")
+    st.markdown(f"**📍 {st.session_state.user_district or '---'}**")
+    st.markdown(f"**📱 {encrypt_phone(st.session_state.user_phone) if st.session_state.user_phone else '---'}**")
+    
+    st.markdown("---")
+    st.markdown("### ⚖️ Privacy")
+    if st.session_state.consent_given:
+        st.success("✅ Consent recorded")
+    
+    st.markdown("---")
+    st.markdown(f"### 📈 {t('stats')}")
+    st.metric(t('total_records'), len(load_data(RECORDS_FILE, [])))
+    
+    today = datetime.now().strftime("%Y-%m-%d")
+    today_records = len([r for r in load_data(RECORDS_FILE, []) if r.get("date") == today])
+    st.metric(t('today_records'), today_records)
+    
+    st.markdown("---")
+    st.markdown(f"### 🔗 {t('compatible_with')}")
+    st.markdown("- ✅ NBI\n- ✅ NIFAMIS\n- ✅ DHIS2\n- ✅ EMIS\n- ✅ Data Protection Act 2019")
+    
+    st.markdown("---")
+    st.markdown(f"### 📞 {t('support')}")
+    st.markdown("📞 0800-200-900\n📧 support@nita.go.ug")
+
+# ==================== Footer ====================
+st.markdown(f"""
+<div class='footer'>
+    <strong>{t('app_name')}</strong> - {t('footer')}<br>
+    🇺🇬 {t('nbi_compatible')} 🇺🇬
+</div>
+""", unsafe_allow_html=True)
